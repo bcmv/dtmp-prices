@@ -1,0 +1,188 @@
+extends layout
+
+block content
+	h2 Batch
+		input(type='hidden', data-code=code, value=code)#batch_code
+		strong #{code}
+	section
+		table.table.table-bordered.table-condensed(style='margin-bottom:0')
+			thead
+				tr
+					th Field
+					th Formula
+			tbody#batch-rows
+				tr
+					td(contenteditable='true').batch-field-key &nbsp;
+					td(contenteditable='true').batch-field-value &nbsp;
+		p.note
+			small only alphabet and underscores are allowed, no spaces.
+	section
+		button(type='button').btn#add-row Add Row
+		button(type='button').btn#update Update
+	br
+	section
+		table.table.table-bordered
+			thead
+				tr#product-headers
+					th Product
+					th Quoted Price
+			tbody#product-rows
+				-each product in products
+					tr(data-product-id=product.id)
+						td=product.title
+						td(data-product-field='quoted_price', contenteditable='true')=product.quoted_price
+	section
+		button(type='button').btn#save Save
+	script.
+		$(function(){
+
+			$("#saves").on('click', function(){
+				var batch_data;
+
+				var product_data;
+				product_data = $("#product-rows tr").map(function(){
+					var fields = $(this).find("[data-product-field]");
+					var obj = {};
+					fields.each(function(){
+						var val = $(this).text().trim();
+						if(val != ""){
+							obj[$(this).attr('data-product-field')] = val;
+						}
+					});
+					if(!Object.keys(obj).length){
+						return;
+					}
+					obj.product_id = parseInt($(this).attr('data-product-id'));
+					return obj;
+				});
+				console.log(product_data.toArray());
+				var batch_code = $("#batch_code").val()
+				$.post('/batch/'+ batch_code,data)
+			});
+			$("#add-row").on('click', function(){
+				$("#batch-rows").append('<tr><td class="batch-field-key" contenteditable="true">&nbsp;</td><td class="batch-field-value" contenteditable="true">&nbsp;</td></tr>');
+			});
+			$("body").on('keydown','#batch-rows tr', function(){
+				$(this).css("background", "white")
+			});
+			$("#update").on('click', function(){
+				update();
+			});
+			var ok = false;
+			$("#save").on('click', function(){
+				update();
+				if(!ok){
+					return alert("error!");
+				}
+				var batch_code = $("#batch_code").val();
+				var formulas = [];
+				var products = [];
+				formulas = $("#batch-rows tr").map(function(){
+					return {
+						key: $(this).find(".batch-field-key").text().trim(),
+						value: $(this).find(".batch-field-value").text().trim()
+					}
+				}).toArray();
+				$("#product-rows tr").each(function(){
+					var product_id;
+					var quoted_price;
+					product_id = parseInt($(this).attr('data-product-id'));
+					quoted_price = $(this).find('[data-product-field="quoted_price"]');
+					quoted_price = quoted_price.text().trim();
+					if(quoted_price == ""){
+						return;
+					}
+					quoted_price = parseFloat(quoted_price);
+					products.push({quoted_price:quoted_price, product_id:product_id});
+				}).toArray();
+				var post = {formulas:formulas, products:products};
+				post = JSON.stringify(post)
+				$.post('/batch/'+ batch_code, {data:post}, function(res){
+
+				});
+			});
+
+			function update(){
+				ok = false;
+				var rows = $("#batch-rows tr");
+				//filter empty rows
+				rows = rows.filter(function(){
+					var key = $(this).find("td:first");
+					var value = $(this).find("td:last");
+					if(key.text().trim() == "" || value.text().trim() == ""){
+						$(this).css("background", "red")
+						return false;
+					}
+					return true
+				});
+				//validate field names
+				var valid = true;
+				var keys = []
+				var values = []
+				rows.each(function(){
+					var key = $(this).find("td:first").text();
+					var value = $(this).find("td:last").text();
+					key=key.trim();
+					value=value.trim();
+					if(keys.indexOf(key) != -1){
+						valid = false;
+						alert("'"+ key + "' is repeated");
+						$(this).css("background", "red")
+					}
+					keys.push(key);
+					values.push(value);
+					var is_valid = key.match(/^[a-zA-Z0-9_]*$/g) != null;
+
+					var previous_values
+
+					if(!is_valid){
+						valid = false;
+						alert("'"+ key + "' is not valid")
+						$(this).css("background", "red")
+					}
+				});
+				var data_rows = $("#product-rows tr");
+				$("[computed-field],[computed-field-header]").remove();
+				data_rows.each(function(){
+					var row = $(this);
+					var qp = row.find("[data-product-field='quoted_price']");
+					qp = eval(qp.text());
+					qp = qp || 0;
+					//compute
+					var computed_values = [];
+					values.forEach(function(val,ind){
+						//check if value has previous keys
+						for(var i=0;i<ind;i++){
+							var k = keys[i];
+							var k_val = computed_values[i];
+							if(val.indexOf(k) != -1){
+								val = val.replace(new RegExp(k,'g'),k_val);
+							}
+						}
+						if(val.indexOf('quoted_price') != -1){
+							val = val.replace(new RegExp('quoted_price','g'),qp);
+						}
+						var computed_val = eval(val);
+						computed_val = Math.round(computed_val * 100) / 100;
+						computed_values.push(computed_val);
+						row.append('<td computed-field data-product-field="">'+computed_val+'</td>');
+					});
+					console.log(computed_values);
+					return computed_values;
+				});
+				keys.forEach(function(k){
+					k = k.replace(/_/g,' ');
+					$("#product-headers").append('<th computed-field-header style="text-transform:capitalize">'+k+'</th>')
+				})
+				ok = true;
+			}
+			var formulas = !{formulas};
+			formulas = formulas.map(function(f){
+				if(!f.value){
+					f.value = "";
+				}
+				return '<tr><td contenteditable="true" class="batch-field-key">'+f.key+'</td><td contenteditable="true" class="batch-field-value">'+f.value+'</td></tr>';
+			});
+			$("#batch-rows").html(formulas.join(''));			
+			update();
+		})
