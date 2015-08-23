@@ -67,7 +67,6 @@ router.get('/:code', function(req, res) {
 			fn()
 		}
 	], function(err){
-		console.log(filtered);
 		formulas = batch ? JSON.stringify(batch.formulas) : "[]";
 		res.render('batch', { code:code, products:filtered, formulas:formulas });
 	});

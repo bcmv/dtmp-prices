@@ -1,7 +1,7 @@
 extends layout
 
 block content
-	h2 Batch
+	h2 Batch 
 		input(type='hidden', data-code=code, value=code)#batch_code
 		strong #{code}
 	section
@@ -98,7 +98,7 @@ block content
 				var post = {formulas:formulas, products:products};
 				post = JSON.stringify(post)
 				$.post('/batch/'+ batch_code, {data:post}, function(res){
-
+					alert('saved');
 				});
 			});
 
