@@ -40,7 +40,8 @@ router.get('/:code', function(req, res) {
 			filtered = _.filter(products, function(p){
 				var p = p.tags;
 				var t = p.toLowerCase().split(",");
-				return t.indexOf(code) == -1;
+				console.log(p,t)
+				return t.indexOf(code) != -1;
 			});
 			console.log(filtered);
 			fn()
