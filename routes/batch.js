@@ -42,6 +42,7 @@ router.get('/:code', function(req, res) {
 				var t = p.toLowerCase().split(",");
 				return t.indexOf(code) != -1;
 			});
+			console.log(filtered);
 			fn()
 		},
 		function findFromDb(fn){
